@@ -1,0 +1,220 @@
+{% extends "layout_sidebar.html" %}
+{% block title %}Data Pemeriksaan Tersimpan{% endblock %}
+
+{% block content %}
+<h4 class="mb-3">📂 Data Pemeriksaan Tersimpan</h4>
+
+<div class="mb-3">
+    <button class="btn btn-secondary btn-sm" onclick="history.back()">
+        ← Kembali
+    </button>
+</div>
+
+<!-- Alert -->
+<div id="alertContainer" class="mb-3"></div>
+
+{% if data|length == 0 %}
+    <div class="alert alert-warning">
+        Belum ada data yang disimpan.
+    </div>
+{% else %}
+
+<div class="mb-3">
+    <a href="{{ url_for('pemeriksaan.download_saved') }}" class="btn btn-success btn-sm">
+        ⬇ Download Excel
+    </a>
+
+    <a href="{{ url_for('pemeriksaan.clear_saved') }}"
+       class="btn btn-danger btn-sm"
+       onclick="return confirm('Hapus semua data tersimpan?')">
+        🗑️ Hapus Semua
+    </a>
+</div>
+
+<div class="table-responsive">
+<table class="table table-bordered table-striped" id="savedTable">
+    <thead class="thead-dark">
+        <tr>
+            <th>Aksi</th>
+            <th>No</th>
+            {% for col in DISPLAY_COLUMNS %}
+                <th>{{ col|replace('_', ' ') }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in data %}
+        <tr id="row-{{ loop.index0 }}">
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button type="button"
+                            class="btn btn-warning btn-edit"
+                            data-index="{{ loop.index0 }}"
+                            data-toggle="modal"
+                            data-target="#editModal">
+                        ✏️ Edit
+                    </button>
+                    <button type="button"
+                            class="btn btn-danger btn-delete"
+                            data-index="{{ loop.index0 }}">
+                        🗑️ Hapus
+                    </button>
+                </div>
+            </td>
+
+            <!-- No (TETAP ADA TAPI DISembunyikan via CSS) -->
+            <td>{{ loop.index + 1 }}</td>
+
+            {% for col_value in row %}
+            <td class="editable"
+                data-column="{{ DISPLAY_COLUMNS[loop.index0] if loop.index0 < DISPLAY_COLUMNS|length else '' }}">
+                {% if col_value in [None, 'nan', 'None', 'null', '', 'NaN'] %}
+                {% else %}
+                    {{ col_value }}
+                {% endif %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<!-- MODAL EDIT -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">✏️ Edit Data</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editIndex">
+
+                    <div class="row">
+                        {% for col in DISPLAY_COLUMNS %}
+                        <div class="col-md-6 mb-3">
+                            <label class="font-weight-bold">
+                                {{ col|replace('_', ' ') }}
+                            </label>
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   id="edit-{{ col }}"
+                                   name="{{ col }}">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                <button class="btn btn-primary" id="btnSaveEdit">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function () {
+
+    const columns = [
+        'CLNT_ID','CLNT_NAME','CURR_LIC_NUM','LINK_ID','STN_NAME',
+        'STASIUN_LAWAN','SID_LONG','SID_LAT','FREQ','FREQ_PAIR',
+        'BWIDTH','EQ_MDL','CITY'
+    ];
+
+    function showAlert(msg, type='success'){
+        $('#alertContainer').html(`
+            <div class="alert alert-${type} alert-dismissible fade show">
+                ${msg}
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+            </div>
+        `);
+        if(type === 'success'){
+            setTimeout(()=>$('.alert').alert('close'), 4000);
+        }
+    }
+
+    $('.btn-edit').click(function(){
+        let idx = $(this).data('index');
+        $('#editIndex').val(idx);
+
+        $(`#row-${idx} .editable`).each(function(){
+            let col = $(this).data('column');
+            if(col){
+                $('#edit-' + col).val($(this).text().trim());
+            }
+        });
+    });
+
+    $('.btn-delete').click(function(){
+        let idx = $(this).data('index');
+        if(!confirm('Yakin hapus data ini?')) return;
+
+        $.post("{{ url_for('pemeriksaan.delete_single') }}",
+            JSON.stringify({index: idx}),
+            function(res){
+                if(res.success){
+                    location.reload();
+                }
+            }, 'json'
+        );
+    });
+
+    $('#btnSaveEdit').click(function(){
+        let idx = $('#editIndex').val();
+        let data = {};
+
+        columns.forEach(c => data[c] = $('#edit-'+c).val());
+
+        $.ajax({
+            url: "{{ url_for('pemeriksaan.update_single') }}",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ index: parseInt(idx), data: data }),
+            success: function(res){
+                if(res.success){
+                    $('#editModal').modal('hide');
+                    showAlert('✅ Data berhasil diperbarui');
+                    setTimeout(()=>location.reload(), 800);
+                }
+            }
+        });
+    });
+
+});
+</script>
+
+<style>
+/* ==========================
+   SEMBUNYIKAN KOLOM NO (VIEW ONLY)
+========================== */
+#savedTable thead th:nth-child(2),
+#savedTable tbody td:nth-child(2) {
+    display: none !important;
+}
+
+/* UI */
+#savedTable th, #savedTable td {
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+#savedTable th:first-child,
+#savedTable td:first-child {
+    width: 130px;
+}
+
+.modal-body {
+    max-height: 65vh;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "layout_sidebar.html" %}
+
+{% block content %}
+<h4>🗂️ Data SIMS</h4>
+
+<div class="card shadow-sm mt-3">
+    <div class="card-body">
+
+        <!-- BUTTON DOWNLOAD -->
+        <div class="mb-3 text-right">
+            <button id="btnDownload" class="btn btn-success btn-sm">
+                📥 Unduh File (Hasil Filter)
+            </button>
+        </div>
+
+        <!-- TABLE WRAPPER -->
+        <div class="table-scroll">
+            <table id="excelTable"
+                   class="table table-bordered table-striped nowrap"
+                   style="width:100%">
+                <thead class="thead-dark">
+                    <tr>
+                        {% for col in columns %}
+                            <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+            </table>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let table;
+
+$(document).ready(function () {
+    // Initialize DataTable
+    table = $('#excelTable').DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: "/data",
+        pageLength: 10,
+        scrollX: true
+    });
+
+    // Download button
+    $('#btnDownload').click(function () {
+        let searchValue = table.search();
+        let url = "/data-sims/download?search=" + encodeURIComponent(searchValue);
+        window.location.href = url;
+    });
+});
+</script>
+{% endblock %}

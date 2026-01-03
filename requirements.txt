@@ -1,0 +1,7 @@
+flask
+pandas
+openpyxl
+gunicorn
+Werkzeug
+
+##pip install -r requirements.txt##
